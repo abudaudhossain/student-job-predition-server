@@ -117,7 +117,7 @@ Example response:
 ```json
 {
   "status": "Got a Job",
-  "confidence": 0.87
+  "confidence": 1.0
 }
 ```
 

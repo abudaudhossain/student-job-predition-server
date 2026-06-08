@@ -1,21 +1,30 @@
 # Student Job Prediction Server
 
-This project is a FastAPI-based ML inference server that predicts whether a student is likely to get a job based on academic, technical, and activity-related inputs.
+This project is a FastAPI-based ML inference server that predicts whether a student is likely to be placed in a job based on academic, technical, and employability-related inputs.
 
-The model is loaded from `model.pkl`, and the API converts incoming request data into the exact feature format expected by the trained model.
+The server loads a CatBoost classifier from `model.pkl` and applies the same preprocessing pipeline used in `job_prediction_model.py` before running inference.
 
 ## About the server
 
 - Framework: `FastAPI`
-- Model loading: `joblib`
-- Data preparation: `pandas`
+- Model: `CatBoostClassifier` (loaded with `joblib`)
+- Preprocessing: `pandas`, `scikit-learn` (`StandardScaler`)
 - Main endpoints:
   - `GET /` -> health check message
-  - `POST /predict` -> prediction and confidence score
+  - `POST /predict` -> placement prediction and confidence score
 
 `POST /predict` returns:
 - `status`: `"Got a Job"` or `"Did Not Get a Job"`
-- `confidence`: probability score for the positive class
+- `confidence`: probability score for the positive class (placed)
+
+## Preprocessing flow
+
+Before prediction, the API:
+
+1. Derives `coding_contest_skill_score` from `coding_contest_rating` and `coding_contest_platform`
+2. One-hot encodes `department` (`B.B.A` is the reference category)
+3. Scales numeric features using `scaler.pkl`
+4. Runs inference with the trained CatBoost model
 
 ## Requirements
 
@@ -23,6 +32,7 @@ The model is loaded from `model.pkl`, and the API converts incoming request data
 - Files required in project root:
   - `app.py`
   - `model.pkl`
+  - `scaler.pkl`
   - `requirements.txt`
 
 ## How to run
@@ -59,7 +69,6 @@ Server will run at:
 
 - `http://127.0.0.1:8000`
 
-
 ## API usage
 
 ### Health check
@@ -87,28 +96,32 @@ POST /predict
 Content-Type: application/json
 ```
 
-Example body (short readable keys):
+Example body:
 
 ```json
 {
+  "cgpa": 4.0,
   "department": "CSE",
-  "age": 22,
-  "cgpa": 3.4,
-  "problems_solved": 180,
-  "technical_skill": 4,
-  "communication_skill": 3,
-  "problem_solving_ability": 3,
-  "teamwork": 4,
-  "extra_activities": 3,
-  "projects_completed": 5,
-  "internship_experience": "yes",
-  "gender": "male",
-  "completed_extra_courses": 4,
-  "published_projects": "yes",
-  "job_by_referral": "no",
-  "education_aligned_job": "yes",
-  "programming_languages": "Python, Java, C++",
-  "activities": "Hackathons, Workshops"
+  "programming_skill_score": 100,
+  "problem_solving_score": 95,
+  "database_skill_score": 86,
+  "coding_contest_rating": 1898,
+  "coding_contest_platform": "HackerRank",
+  "internships_count": 3,
+  "hackathons_participated": 5,
+  "freelance_experience": 0,
+  "certifications_count": 4,
+  "projects_count": 5,
+  "github_repos": 20,
+  "communication_skill_score": 92,
+  "teamwork_score": 75,
+  "learning_consistency_score": 97,
+  "aptitude_test_score": 100,
+  "mock_interview_score": 97,
+  "resume_quality_score": 100,
+  "leadership_score": 95,
+  "extracurricular_score": 96,
+  "presentation_skill_score": 87
 }
 ```
 
@@ -117,12 +130,42 @@ Example response:
 ```json
 {
   "status": "Got a Job",
-  "confidence": 1.0
+  "confidence": 0.9919
 }
 ```
 
+## Request fields
+
+All fields below are required.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `cgpa` | number | Student CGPA |
+| `department` | string | One of `B.B.A`, `CSE`, `Civil`, `EEE`, `English`, `Pharmacy` |
+| `programming_skill_score` | integer | Self-rated programming skill score |
+| `problem_solving_score` | integer | Problem solving score |
+| `database_skill_score` | integer | Database skill score |
+| `coding_contest_rating` | number | Rating on the selected coding platform |
+| `coding_contest_platform` | string | One of `Codeforces`, `CodeChef`, `LeetCode`, `HackerRank` |
+| `internships_count` | integer | Number of internships completed |
+| `hackathons_participated` | integer | Number of hackathons participated in |
+| `freelance_experience` | integer or yes/no | `0`/`1`, or `yes`/`no` |
+| `certifications_count` | integer | Number of certifications earned |
+| `projects_count` | integer | Number of completed projects |
+| `github_repos` | integer | Number of GitHub repositories |
+| `communication_skill_score` | integer | Communication skill score |
+| `teamwork_score` | integer | Teamwork score |
+| `learning_consistency_score` | integer | Learning consistency score |
+| `aptitude_test_score` | integer | Aptitude test score |
+| `mock_interview_score` | integer | Mock interview score |
+| `resume_quality_score` | integer | Resume quality score |
+| `leadership_score` | integer | Leadership score |
+| `extracurricular_score` | integer | Extracurricular activity score |
+| `presentation_skill_score` | integer | Presentation skill score |
+
 ## Notes
 
-- Prefer short keys shown above; legacy long keys are also supported for backward compatibility.
-- If invalid values are sent (for example non-numeric text for numeric fields), the API returns `400` errors.
-- If you move files, ensure `model.pkl` remains accessible from where the server starts.
+- `coding_contest_skill_score` is computed automatically from `coding_contest_rating` and `coding_contest_platform`; do not send it in the request.
+- `department` is encoded internally. `B.B.A` is the baseline category; other departments are mapped to one-hot columns.
+- If required fields are missing or values are invalid, the API returns `400` errors.
+- Ensure `model.pkl` and `scaler.pkl` remain accessible from where the server starts.

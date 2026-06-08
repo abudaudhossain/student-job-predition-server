@@ -17,74 +17,67 @@ app.add_middleware(
 )
 
 model = joblib.load("model.pkl")
-MODEL_FEATURES = list(model.feature_names_in_)
+scaler = joblib.load("scaler.pkl")
+MODEL_FEATURES = list(model.feature_names_)
 
+CODING_PLATFORMS = {"Codeforces", "CodeChef", "LeetCode", "HackerRank"}
+VALID_DEPARTMENTS = {"B.B.A", "CSE", "Civil", "EEE", "English", "Pharmacy"}
 DEPARTMENT_FEATURES = [
-    "Department_CSE",
-    "Department_EEE",
-    "Department_IT",
-    "Department_Management",
-    "Department_SWE",
+    "department_CSE",
+    "department_Civil",
+    "department_EEE",
+    "department_English",
+    "department_Pharmacy",
 ]
 
-LANGUAGE_FEATURES = ["C", "C++", "Java", "JavaScript", "PHP", "Python"]
+SCALED_FEATURES = [
+    "cgpa",
+    "programming_skill_score",
+    "problem_solving_score",
+    "database_skill_score",
+    "internships_count",
+    "hackathons_participated",
+    "certifications_count",
+    "projects_count",
+    "github_repos",
+    "communication_skill_score",
+    "teamwork_score",
+    "learning_consistency_score",
+    "aptitude_test_score",
+    "mock_interview_score",
+    "resume_quality_score",
+    "leadership_score",
+    "extracurricular_score",
+    "presentation_skill_score",
+    "coding_contest_skill_score",
+]
+
+REQUIRED_FIELDS = [
+    "cgpa",
+    "department",
+    "programming_skill_score",
+    "problem_solving_score",
+    "database_skill_score",
+    "coding_contest_rating",
+    "coding_contest_platform",
+    "internships_count",
+    "hackathons_participated",
+    "freelance_experience",
+    "certifications_count",
+    "projects_count",
+    "github_repos",
+    "communication_skill_score",
+    "teamwork_score",
+    "learning_consistency_score",
+    "aptitude_test_score",
+    "mock_interview_score",
+    "resume_quality_score",
+    "leadership_score",
+    "extracurricular_score",
+    "presentation_skill_score",
+]
 
 YES_NO_MAP = {"yes": 1, "no": 0, "true": 1, "false": 0, "1": 1, "0": 0}
-
-INPUT_KEYS = {
-    "department": ["department", "Department"],
-    "age": ["age", "Age"],
-    "cgpa": ["cgpa", "CGPA"],
-    "problems_solved": [
-        "problems_solved",
-        "Approximate Number of Problems Solved on Online Judge Platforms",
-    ],
-    "technical_skill": ["technical_skill", "Self-Rated Technical Skill Level"],
-    "communication_skill": ["communication_skill", "Communication Skill Level"],
-    "problem_solving_ability": [
-        "problem_solving_ability",
-        "problem_solving",
-        "Real-World Problem Solving Ability",
-    ],
-    "teamwork": ["teamwork", "Teamwork Ability"],
-    "extra_activities": ["extra_activities", "Number of Extra-Curricular Activities"],
-    "projects_completed": ["projects_completed", "Number of Completed Projects"],
-    "internship_experience": ["internship_experience", "Internship Experience"],
-    "gender": ["gender", "Gender"],
-    "completed_extra_courses": [
-        "completed_extra_courses",
-        "How many skill development courses have you completed outside your academic curriculum?",
-    ],
-    "published_projects": [
-        "published_projects",
-        "Have you published projects on GitHub or deployed online?",
-    ],
-    "job_by_referral": [
-        "job_by_referral",
-        "Was the job obtained through networking or referral?",
-    ],
-    "education_aligned_job": [
-        "education_aligned_job",
-        "Does your current employment align with your educational background?",
-    ],
-    "programming_languages": ["programming_languages", "Programming Languages You Know"],
-    "activities": [
-        "activities",
-        "Which of the following extra-curricular or technical activities have you participated in during your university studies?",
-    ],
-}
-
-# Approximated from notebook-style activity scoring.
-ACTIVITY_SCORE_MAP = {
-    "Programming Contests": 5,
-    "Hackathons": 5,
-    "Open Source Contribution": 5,
-    "Freelancing": 4,
-    "Workshops": 3,
-    "Seminars": 2,
-    "None": 0,
-    "Unknown": 0,
-}
 
 
 def to_binary(value, field_name: str) -> int:
@@ -113,111 +106,95 @@ def to_float(value, field_name: str) -> float:
         raise HTTPException(status_code=400, detail=f"Invalid number for '{field_name}': {value}")
 
 
-def pick_value(raw: dict, keys: list[str], field_name: str, required: bool = False):
-    for key in keys:
-        if key in raw and raw[key] is not None:
-            return raw[key]
-    if required:
-        raise HTTPException(status_code=400, detail=f"Missing required field: {field_name}")
-    return None
+def get_coding_skill_score(platform: str, rating: float) -> int:
+    score = 25
+    if platform == "Codeforces":
+        if rating < 1200:
+            return score
+        if rating <= 1599:
+            return 2 * score
+        if rating <= 2099:
+            return 3 * score
+        return 4 * score
+    if platform == "CodeChef":
+        if rating < 1400:
+            return score
+        if rating <= 1799:
+            return 2 * score
+        if rating <= 2199:
+            return 3 * score
+        return 4 * score
+    if platform == "LeetCode":
+        if rating < 1500:
+            return score
+        if rating <= 1899:
+            return 2 * score
+        if rating <= 2300:
+            return 3 * score
+        return 4 * score
+    if platform == "HackerRank":
+        if rating < 1600:
+            return score
+        if rating <= 2000:
+            return 2 * score
+        if rating <= 2400:
+            return 3 * score
+        return 4 * score
+    return 0
 
 
-def parse_languages(languages_raw) -> tuple[dict, int]:
-    if isinstance(languages_raw, list):
-        items = [str(item).strip() for item in languages_raw]
-    else:
-        items = [part.strip() for part in str(languages_raw).split(",")]
-    selected = {item for item in items if item}
+def build_model_input(raw: dict) -> pd.DataFrame:
+    for field in REQUIRED_FIELDS:
+        if field not in raw or raw[field] is None:
+            raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
 
-    lang_values = {lang: 1 if lang in selected else 0 for lang in LANGUAGE_FEATURES}
-    return lang_values, sum(lang_values.values())
+    department = str(raw["department"]).strip()
+    if department not in VALID_DEPARTMENTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid department '{department}'. Expected one of: {sorted(VALID_DEPARTMENTS)}",
+        )
 
+    platform = str(raw["coding_contest_platform"]).strip()
+    if platform not in CODING_PLATFORMS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid coding_contest_platform '{platform}'. Expected one of: {sorted(CODING_PLATFORMS)}",
+        )
 
-def compute_activity_score(activity_raw, fallback_count: int) -> int:
-    if activity_raw is None:
-        return fallback_count
-
-    if isinstance(activity_raw, list):
-        activities = [str(item).strip() for item in activity_raw if str(item).strip()]
-    else:
-        activities = [part.strip() for part in str(activity_raw).split(",") if part.strip()]
-
-    if not activities:
-        return fallback_count
-
-    scores = [ACTIVITY_SCORE_MAP.get(activity, 0) for activity in activities]
-    max_score = max(scores) if scores else 0
-    return max_score if max_score > 0 else fallback_count
-
-
-def build_model_input(raw: dict) -> dict:
-    dept = str(pick_value(raw, INPUT_KEYS["department"], "department", required=True)).strip()
-
+    rating = to_float(raw["coding_contest_rating"], "coding_contest_rating")
     model_input = {
-        "Age": to_int(pick_value(raw, INPUT_KEYS["age"], "age"), "age"),
-        "CGPA": to_float(pick_value(raw, INPUT_KEYS["cgpa"], "cgpa"), "cgpa"),
-        "Approximate Number of Problems Solved on Online Judge Platforms": to_int(
-            pick_value(raw, INPUT_KEYS["problems_solved"], "problems_solved"),
-            "problems_solved",
-        ),
-        "Self-Rated Technical Skill Level": to_int(
-            pick_value(raw, INPUT_KEYS["technical_skill"], "technical_skill"), "technical_skill"
-        ),
-        "Communication Skill Level": to_int(
-            pick_value(raw, INPUT_KEYS["communication_skill"], "communication_skill"), "communication_skill"
-        ),
-        "Real-World Problem Solving Ability": to_int(
-            pick_value(raw, INPUT_KEYS["problem_solving_ability"], "problem_solving_ability"),
-            "problem_solving_ability",
-        ),
-        "Teamwork Ability": to_int(pick_value(raw, INPUT_KEYS["teamwork"], "teamwork"), "teamwork"),
-        "Number of Extra-Curricular Activities": to_int(
-            pick_value(raw, INPUT_KEYS["extra_activities"], "extra_activities"), "extra_activities"
-        ),
-        "Number of Completed Projects": to_int(
-            pick_value(raw, INPUT_KEYS["projects_completed"], "projects_completed"), "projects_completed"
-        ),
-        "Internship Experience": to_binary(
-            pick_value(raw, INPUT_KEYS["internship_experience"], "internship_experience"),
-            "internship_experience",
-        ),
-        "Gender_Male": 1 if str(pick_value(raw, INPUT_KEYS["gender"], "gender") or "").strip().lower() == "male" else 0,
-        "completed_extra_coures": to_int(
-            pick_value(raw, INPUT_KEYS["completed_extra_courses"], "completed_extra_courses"),
-            "completed_extra_courses",
-        ),
-        "published projects": to_binary(
-            pick_value(raw, INPUT_KEYS["published_projects"], "published_projects"),
-            "published_projects",
-        ),
-        "job obtained by referral": to_binary(
-            pick_value(raw, INPUT_KEYS["job_by_referral"], "job_by_referral"),
-            "job_by_referral",
-        ),
-        "educational background job": to_binary(
-            pick_value(raw, INPUT_KEYS["education_aligned_job"], "education_aligned_job"),
-            "education_aligned_job",
-        ),
+        "cgpa": to_float(raw["cgpa"], "cgpa"),
+        "programming_skill_score": to_int(raw["programming_skill_score"], "programming_skill_score"),
+        "problem_solving_score": to_int(raw["problem_solving_score"], "problem_solving_score"),
+        "database_skill_score": to_int(raw["database_skill_score"], "database_skill_score"),
+        "internships_count": to_int(raw["internships_count"], "internships_count"),
+        "hackathons_participated": to_int(raw["hackathons_participated"], "hackathons_participated"),
+        "freelance_experience": to_binary(raw["freelance_experience"], "freelance_experience"),
+        "certifications_count": to_int(raw["certifications_count"], "certifications_count"),
+        "projects_count": to_int(raw["projects_count"], "projects_count"),
+        "github_repos": to_int(raw["github_repos"], "github_repos"),
+        "communication_skill_score": to_int(raw["communication_skill_score"], "communication_skill_score"),
+        "teamwork_score": to_int(raw["teamwork_score"], "teamwork_score"),
+        "learning_consistency_score": to_int(raw["learning_consistency_score"], "learning_consistency_score"),
+        "aptitude_test_score": to_int(raw["aptitude_test_score"], "aptitude_test_score"),
+        "mock_interview_score": to_int(raw["mock_interview_score"], "mock_interview_score"),
+        "resume_quality_score": to_int(raw["resume_quality_score"], "resume_quality_score"),
+        "leadership_score": to_int(raw["leadership_score"], "leadership_score"),
+        "extracurricular_score": to_int(raw["extracurricular_score"], "extracurricular_score"),
+        "presentation_skill_score": to_int(raw["presentation_skill_score"], "presentation_skill_score"),
+        "coding_contest_skill_score": get_coding_skill_score(platform, rating),
     }
 
     for dept_feature in DEPARTMENT_FEATURES:
         model_input[dept_feature] = 0
-    mapped_dept_key = f"Department_{dept}"
-    if mapped_dept_key in model_input:
-        model_input[mapped_dept_key] = 1
+    if department != "B.B.A":
+        model_input[f"department_{department}"] = 1
 
-    language_values, language_count = parse_languages(
-        pick_value(raw, INPUT_KEYS["programming_languages"], "programming_languages") or ""
-    )
-    model_input.update(language_values)
-    model_input["programing_skill_count"] = language_count
+    df = pd.DataFrame([model_input], columns=MODEL_FEATURES)
+    df[SCALED_FEATURES] = scaler.transform(df[SCALED_FEATURES])
+    return df
 
-    model_input["activity_score"] = compute_activity_score(
-        pick_value(raw, INPUT_KEYS["activities"], "activities"),
-        model_input["Number of Extra-Curricular Activities"],
-    )
-
-    return {feature: model_input.get(feature, 0) for feature in MODEL_FEATURES}
 
 @app.get("/")
 def home():
@@ -226,12 +203,11 @@ def home():
 
 @app.post("/predict")
 def predict(data: dict):
-    model_input = build_model_input(data)
-    df = pd.DataFrame([model_input], columns=MODEL_FEATURES)
-    pred = model.predict(df)[0]
-    prob = model.predict_proba(df)[0][1]
+    df = build_model_input(data)
+    pred = int(model.predict(df)[0])
+    prob = float(model.predict_proba(df)[0][1])
 
     return {
         "status": "Got a Job" if pred == 1 else "Did Not Get a Job",
-        "confidence": float(prob)
+        "confidence": prob,
     }

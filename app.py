@@ -170,7 +170,7 @@ def build_model_input(raw: dict) -> pd.DataFrame:
         "database_skill_score": to_int(raw["database_skill_score"], "database_skill_score"),
         "internships_count": to_int(raw["internships_count"], "internships_count"),
         "hackathons_participated": to_int(raw["hackathons_participated"], "hackathons_participated"),
-        "freelance_experience": to_binary(raw["freelance_experience"], "freelance_experience"),
+        "freelance_experience": to_int(raw["freelance_experience"], "freelance_experience"),
         "certifications_count": to_int(raw["certifications_count"], "certifications_count"),
         "projects_count": to_int(raw["projects_count"], "projects_count"),
         "github_repos": to_int(raw["github_repos"], "github_repos"),

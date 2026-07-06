@@ -16,10 +16,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model = joblib.load("model.pkl")
-scaler = joblib.load("scaler.pkl")
-MODEL_FEATURES = list(model.feature_names_)
-
 CODING_PLATFORMS = {"Codeforces", "CodeChef", "LeetCode", "HackerRank"}
 VALID_DEPARTMENTS = {"B.B.A", "CSE", "Civil", "EEE", "English", "Pharmacy"}
 DEPARTMENT_FEATURES = [
@@ -51,6 +47,16 @@ SCALED_FEATURES = [
     "presentation_skill_score",
     "coding_contest_skill_score",
 ]
+
+model = joblib.load("model.pkl")
+scaler = joblib.load("scaler.pkl")
+
+if hasattr(model, "feature_names_in_"):
+    MODEL_FEATURES = list(model.feature_names_in_)
+elif hasattr(model, "feature_names_"):
+    MODEL_FEATURES = list(model.feature_names_)
+else:
+    MODEL_FEATURES = SCALED_FEATURES + ["freelance_experience"] + DEPARTMENT_FEATURES
 
 REQUIRED_FIELDS = [
     "cgpa",

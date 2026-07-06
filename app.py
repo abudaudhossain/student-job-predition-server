@@ -114,39 +114,50 @@ def to_float(value, field_name: str) -> float:
 
 def get_coding_skill_score(platform: str, rating: float) -> int:
     score = 25
+
     if platform == "Codeforces":
         if rating < 1200:
             return score
-        if rating <= 1599:
+        elif rating <= 1599:
             return 2 * score
-        if rating <= 2099:
+        elif rating <= 2099:
             return 3 * score
-        return 4 * score
-    if platform == "CodeChef":
+        else:
+            return 4 * score
+
+    elif platform == "CodeChef":
         if rating < 1400:
             return score
-        if rating <= 1799:
+        elif rating <= 1799:
             return 2 * score
-        if rating <= 2199:
+        elif rating <= 2199:
             return 3 * score
-        return 4 * score
-    if platform == "LeetCode":
+        else:
+            return 4 * score
+
+    elif platform == "LeetCode":
         if rating < 1500:
             return score
-        if rating <= 1899:
+        elif rating <= 1899:
             return 2 * score
-        if rating <= 2300:
+        elif rating <= 2300:
             return 3 * score
-        return 4 * score
-    if platform == "HackerRank":
-        if rating < 1600:
+        else:
+            return 4 * score
+
+    elif platform == "HackerRank":
+        # Keep thresholds aligned with training data preparation.
+        if rating < 25:
             return score
-        if rating <= 2000:
+        elif rating < 50:
             return 2 * score
-        if rating <= 2400:
+        elif rating < 75:
             return 3 * score
-        return 4 * score
-    return 0
+        else:
+            return 4 * score
+
+    else:
+        return 0
 
 
 def build_model_input(raw: dict) -> pd.DataFrame:

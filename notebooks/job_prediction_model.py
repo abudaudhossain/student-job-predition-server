@@ -775,7 +775,8 @@ plt.show()
 
 import joblib
 
-joblib.dump(model_5, 'model.pkl')
+joblib.dump(model_2, 'model_2.pkl')
+joblib.dump(scaler_dfe, 'scaler.pkl')
 
 # from google.colab import files
 

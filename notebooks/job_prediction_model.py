@@ -10,7 +10,7 @@ Original file is located at
 import numpy as np
 import pandas as pd
 
-!gdown 1BO8CwFDENYyvVzKP2AHDi6M8oLnvAQHy
+# Colab setup: !gdown 1BO8CwFDENYyvVzKP2AHDi6M8oLnvAQHy
 
 df=pd.read_csv('student_placement_dataset_50k_v3.csv')
 df.head(10)
@@ -523,7 +523,7 @@ plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
 plt.show()
 
-!pip install catboost
+# Colab setup: !pip install catboost
 
 from catboost import CatBoostClassifier
 

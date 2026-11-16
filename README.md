@@ -2,7 +2,25 @@
 
 This project is a FastAPI-based ML inference server that predicts whether a student is likely to be placed in a job based on academic, technical, and employability-related inputs.
 
-The server loads a CatBoost classifier from `model.pkl` and applies the same preprocessing pipeline used in `job_prediction_model.py` before running inference.
+The server loads a CatBoost classifier and applies the same preprocessing pipeline used to train it before running inference.
+
+## Project structure
+
+```text
+.
+├── app.py                         # Backward-compatible Uvicorn entrypoint
+├── student_job_prediction/       # Application package
+│   ├── config.py                  # Paths and model feature definitions
+│   ├── main.py                   # FastAPI routes and middleware
+│   ├── preprocessing.py           # Request validation and feature engineering
+│   ├── service.py                 # Model loading and inference
+│   └── validation.py              # Primitive input conversions
+├── artifacts/
+│   ├── model.pkl
+│   └── scaler.pkl
+├── data/student_placement_dataset_50k_v3.csv
+└── notebooks/job_prediction_model.py
+```
 
 ## About the server
 
@@ -29,10 +47,10 @@ Before prediction, the API:
 ## Requirements
 
 - Python 3.9+ recommended
-- Files required in project root:
+- Files required by the server:
   - `app.py`
-  - `model.pkl`
-  - `scaler.pkl`
+  - `artifacts/model.pkl`
+  - `artifacts/scaler.pkl`
   - `requirements.txt`
 
 ## How to run
@@ -168,4 +186,4 @@ All fields below are required.
 - `coding_contest_skill_score` is computed automatically from `coding_contest_rating` and `coding_contest_platform`; do not send it in the request.
 - `department` is encoded internally. `B.B.A` is the baseline category; other departments are mapped to one-hot columns.
 - If required fields are missing or values are invalid, the API returns `400` errors.
-- Ensure `model.pkl` and `scaler.pkl` remain accessible from where the server starts.
+- Model and scaler paths are resolved from the project directory, so the server can be started from any working directory.

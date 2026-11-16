@@ -10,7 +10,14 @@ class PredictionService:
     def __init__(self) -> None:
         self.model = joblib.load(MODEL_PATH)
         self.scaler = joblib.load(SCALER_PATH)
-        self.model_features = list(self.model.feature_names_)
+        model_features = getattr(self.model, "feature_names_", None)
+        if model_features is None:
+            model_features = getattr(self.model, "feature_names_in_", None)
+        if model_features is None:
+            raise RuntimeError(
+                "The loaded model does not expose feature names required for preprocessing."
+            )
+        self.model_features = list(model_features)
 
     def predict(self, data: dict) -> dict:
         model_input = build_model_input(data, self.model_features, self.scaler)
